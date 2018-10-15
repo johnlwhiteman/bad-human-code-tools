@@ -1,0 +1,76 @@
+{
+    "labels": {
+        "sonarqube": ["avgScore"]
+    },
+    "features": {
+        "cloc": [
+            "blankCnt",
+            "codeCnt",
+            "codeCntPerComment",
+            "commentCnt",
+            "fileCnt",
+            "languageCnt",
+            "lineCnt",
+            "serverSideLanguageCnt",
+            "sizeB",
+            "sizeNoGitB"],
+        "dependencycheck": [
+            "avgCvssScore",
+            "avgEvidenceConfidence",
+            "avgProductEvidenceConfidence",
+            "avgVendorEvidenceConfidence",
+            "avgVersionEvidenceConfidence",
+            "avgVersionEvidenceConfidenceCnt",
+            "cveCnt",
+            "cweCnt",
+            "fileCnt",
+            "uniqueCveCnt",
+            "uniqueCweCnt",
+            "uniqueNonCveCnt",
+            "uniqueVulnerabilityCnt"],
+        "git": [
+            "authorCnt",
+            "commitCnt",
+            "fileCnt",
+            "lastCommitDays",
+            "msgAvgMisspelledWordCnt",
+            "msgAvgPolarity",
+            "msgAvgSentenceCnt",
+            "msgAvgSubjectivity",
+            "msgAvgWordCnt",
+            "msgBlankCnt",
+            "msgCnt",
+            "msgDuplicateCnt",
+            "msgSpellingScore",
+            "noFileExtensionCnt",
+            "projectLifetimeDays",
+            "projectNameLength",
+            "readmeCnt",
+            "reviewedByCnt",
+            "scaryFileExtensionCnt",
+            "securityMessageStringMatchCnt",
+            "signedOffByCnt"],
+        "lizard": [
+            "avgCcnCnt",
+            "avgLocCnt",
+            "avgTokenCnt",
+            "duplicateRate",
+            "functionCnt",
+            "uniqueRate",
+            "warningCnt"],
+        "retire": [
+            "avgCvssScore",
+            "fileCnt",
+            "uniqueCveCnt",
+            "uniqueNonCveCnt",
+            "uniqueVulnerabilityCnt"]
+        },
+    "aliases": {
+        "cloc": "clc",
+        "dependencycheck": "dc",
+        "git": "git",
+        "lizard": "liz",
+        "retire": "ret",
+        "sonarqube": "sq"
+    }
+}
