@@ -235,7 +235,7 @@ class File:
                 else:
                     content = fd.read()
         except IOError as e:
-            Msg.abort("Can't read log file: {0}\n{1}".format(path, e), True)
+            Msg.abort("Can't read log file: {0}\n{1}".format(path, e))
         return content
 
     @staticmethod
@@ -248,7 +248,7 @@ class File:
                 else:
                     fd.write(content)
         except IOError as e:
-            Msg.abort("Can't write log file: {0}\n{1}".format(path, e), True)
+            Msg.abort("Can't write log file: {0}\n{1}".format(path, e))
 
 
 class Number:

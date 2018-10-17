@@ -2,7 +2,7 @@
 import argparse
 import os
 import sys
-from Ml import Ml
+import Ml
 
 if __name__ == "__main__":
     scriptName = os.path.basename(__file__)
@@ -11,15 +11,14 @@ if __name__ == "__main__":
         prog = scriptName,
         description = "This scripts prepares the log data for machine learning.",
         formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-c", "--cfgpath", metavar="'cfgpath'", required=False, type=str,
+                        default="{0}/ml.json".format(dirPath), help="The JSON configuration file")
     parser.add_argument("-l", "--logdir", metavar="'logdir'", required=True, type=str,
                         help="The directory containing the logs")
     parser.add_argument("-o", "--outputdir", metavar="'outputdir'", required=True, type=str,
                         help="Output directory")
-    parser.add_argument("-r", "--reportpath", metavar="'reportpath'", required=False, type=str,
-                        help="The name/path of the report")
     args = parser.parse_args()
-    client = Ml(logDir=args.logdir,
-                reportPath=args.reportpath)
-    client = Ml(logDir=args.logdir, outputDir=args.outputdir, reportPath=args.reportpath)
-    rc = client.prepareData()
+    client = Ml.DataPreparation(logDir=args.logdir, outputDir=args.outputdir,
+                                cfgPath=args.cfgpath)
+    rc = client.run()
     sys.exit(rc)

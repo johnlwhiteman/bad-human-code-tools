@@ -3,17 +3,35 @@ import numpy as np
 import pandas as pd
 import re
 import sys
+from sklearn.model_selection import KFold
 from JunkDrawer import Data, Dir, File, Msg
 
 pd.options.display.float_format = '{:,.2f}'.format
 
-class Ml(object):
+class ModelGeneration(object):
 
-    def __init__(self, logDir, outputDir, reportPath, cfgPath="ml.json",
+    def __init__(self, dataPath, outputDir, cfgPath="ml.json"):
+        self.dataPath = dataPath
+        self.outputDir = outputDir
+        self.cfgPath = cfgPath
+
+    def run(self):
+        X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
+        y = np.array([1, 2, 3, 4])
+        kf = KFold(n_splits=2)
+        for trainIndex, testIndex in kf.split(X):
+            xTrain, xTest = X[trainIndex], X[testIndex]
+            yTrain, yTest = y[trainIndex], y[testIndex]
+
+
+        return 0
+
+class DataPreparation(object):
+
+    def __init__(self, logDir, outputDir, cfgPath="ml.json",
                  excludeMissingDataFlag=False, replaceMissingDataMethod="mean"):
         self.logDir = logDir
         self.outputDir = outputDir
-        self.reportPath = reportPath
         self.cfgPath = cfgPath
         self.excludeMissingDataFlag = excludeMissingDataFlag
         self.replaceMissingDataMethod = replaceMissingDataMethod
@@ -109,7 +127,7 @@ class Ml(object):
             newCols.append("{0}-{1}".format(alias, cols[i]))
         return newCols
 
-    def prepareData(self):
+    def run(self):
         self.initialize()
         self.dfs = {}
         if self.logPaths is None:
@@ -127,6 +145,7 @@ class Ml(object):
         for feature in self.features:
             self.saveDataFeature(feature, self.dfs[feature])
         self.saveData()
+        return 0
 
     def saveData(self):
         joinCols = ["sessionId", "projectName"]
