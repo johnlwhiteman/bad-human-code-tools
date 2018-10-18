@@ -1,29 +1,73 @@
 #!/usr/bin/env python3
+import csv
 import numpy as np
 import pandas as pd
 import re
 import sys
+import time
+from sklearn import tree
+from sklearn.decomposition import PCA
+from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.gaussian_process.kernels import RBF
+from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import KFold
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.neural_network import MLPClassifier
+from sklearn.preprocessing import StandardScaler, LabelEncoder
+from sklearn.svm import SVC
 from JunkDrawer import Data, Dir, File, Msg
 
 pd.options.display.float_format = '{:,.2f}'.format
 
 class ModelGeneration(object):
 
-    def __init__(self, dataPath, outputDir, cfgPath="ml.json"):
+    def __init__(self, dataPath, outputDir, cfgPath="ml.json", kFolds=2):
         self.dataPath = dataPath
         self.outputDir = outputDir
         self.cfgPath = cfgPath
+        self.kFolds = kFolds
+        self.dfData = None
+        self.dfFeatures = None
+        self.dfLabel = None
+        self.featureNames = None
+        self.labelName = None
+        self.classifiers = {
+            "Decision Tree": tree.DecisionTreeClassifier(),
+            "Gradient Boosting Classifier": GradientBoostingClassifier(n_estimators=1000),
+            #"Linear SVM": SVC(),
+            #"Logistic Regression": LogisticRegression(),
+            "Naive Bayes": GaussianNB(),
+            "Nearest Neighbors": KNeighborsClassifier(),
+            "Neural Net": MLPClassifier(alpha = 1),
+            "Random Forest": RandomForestClassifier(n_estimators=1000)
+        }
+
+    def ingestData(self):
+        self.dfData = pd.read_csv(self.dataPath)
+        self.labelName = self.dfData.columns.values[0].strip()
+        self.featureNames = self.dfData.columns.values[3:]
+        self.dfLabel = self.dfData[self.labelName]
+        self.dfFeatures = self.dfData[self.featureNames]
 
     def run(self):
-        X = np.array([[1, 2], [3, 4], [1, 2], [3, 4]])
-        y = np.array([1, 2, 3, 4])
-        kf = KFold(n_splits=2)
+        self.ingestData()
+        kf = KFold(n_splits=self.kFolds)
+        X = self.dfFeatures.values.astype(dtype="int64")
+        y = self.dfLabel.values.astype(dtype="int64")
         for trainIndex, testIndex in kf.split(X):
             xTrain, xTest = X[trainIndex], X[testIndex]
             yTrain, yTest = y[trainIndex], y[testIndex]
-
-
+            for name, classifier in sorted(list(self.classifiers.items())):
+                print(name)
+                startTime = time.clock()
+                classifier.fit(xTrain, yTrain)
+                endTime = time.clock()
+                deltaTime = endTime - startTime
+                trainScore = classifier.score(xTrain, yTrain)
+                testScore = classifier.score(xTest, yTest)
+                print("Train: {0}, Test: {1}".format(trainScore, testScore))
         return 0
 
 class DataPreparation(object):
@@ -41,28 +85,44 @@ class DataPreparation(object):
         self.aliases = None
         self.dfs = None
 
-    def _cloc(self, logPaths):
-        df = self.ingestLogData(logPaths, "cloc", self.features["cloc"])
+    def _sast1(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.labels[name])
         return df
 
-    def _dependencycheck(self, logPaths):
-        df = self.ingestLogData(logPaths, "dependencycheck", self.features["dependencycheck"])
-        return df
-
-    def _git(self, logPaths):
-        df = self.ingestLogData(logPaths, "git", self.features["git"])
-        return df
-
-    def _lizard(self, logPaths):
-        df = self.ingestLogData(logPaths, "lizard", self.features["lizard"])
-        return df
-
-    def _retire(self, logPaths):
-        df = self.ingestLogData(logPaths, "retire", self.features["retire"])
+    def _sast2(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.labels[name])
         return df
 
     def _sonarqube(self, logPaths):
-        df = self.ingestLogData(logPaths, "sonarqube", self.labels["sonarqube"])
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.labels[name])
+        return df
+
+    def _cloc(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.features[name])
+        return df
+
+    def _dependencycheck(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.features[name])
+        return df
+
+    def _git(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.features[name])
+        return df
+
+    def _lizard(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.features[name])
+        return df
+
+    def _retire(self, logPaths):
+        name = sys._getframe().f_code.co_name.replace("_", "")
+        df = self.ingestLogData(logPaths, name, self.features[name])
         return df
 
     def ingestLogs(self):

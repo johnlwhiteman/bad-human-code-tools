@@ -1,6 +1,6 @@
 {
     "labels": {
-        "sonarqube": ["avgScore"]
+        "sonarqube": "avgScore"
     },
     "features": {
         "cloc": [
