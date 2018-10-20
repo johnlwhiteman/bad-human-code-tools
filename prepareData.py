@@ -15,10 +15,20 @@ if __name__ == "__main__":
                         default="{0}/ml.json".format(dirPath), help="The JSON configuration file")
     parser.add_argument("-l", "--logdir", metavar="'logdir'", required=True, type=str,
                         help="The directory containing the logs")
+    parser.add_argument("-M", "--excludemissingdata", action="store_true",
+                        help="Excludes rows with missing data")
     parser.add_argument("-o", "--outputdir", metavar="'outputdir'", required=True, type=str,
                         help="Output directory")
+    parser.add_argument("-r", "--replacemissingdatamethod", metavar="'replacemissingdatamethod'",
+                        required=False, type=str, default="mean", help="mean|median")
+    parser.add_argument("-S", "--scaledata", action="store_true",
+                        help="Scale/normalize data")
+    parser.add_argument("-s", "--scaledatamethod", metavar="'scaledatamethod'", required=False, type=str,
+                        default="RobustScaler", help="MinMaxScaler|Normalizer|RobustScaler|StandardScaler")
     args = parser.parse_args()
-    client = Ml.DataPreparation(logDir=args.logdir, outputDir=args.outputdir,
-                                cfgPath=args.cfgpath)
-    rc = client.run()
-    sys.exit(rc)
+
+    client = Ml.DataPreparation(logDir=args.logdir, outputDir=args.outputdir, cfgPath=args.cfgpath,
+                                scaleDataFlag=args.scaledata, scaleDataMethod=args.scaledatamethod,
+                                excludeMissingDataFlag=args.excludemissingdata,
+                                replaceMissingDataMethod=args.replacemissingdatamethod)
+    sys.exit(client.run())

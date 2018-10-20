@@ -126,7 +126,6 @@ class Dir:
                         dirPath = os.path.join(rootPath, subDirPath)
                         Dir.getFiles(dirPath, recursiveFlag, excludeDirFlag)
         else:
-            print(path)
             for filePath in os.listdir(path):
                 dirFilePath = os.path.join(path, filePath).replace('\\', '/')
                 if os.path.isfile(dirFilePath):
@@ -258,7 +257,7 @@ class Number:
         return str("{:,}".format(value))
 
     @staticmethod
-    def formatAsFloat(value, decimalPlaces=2):
+    def asFloat(value, decimalPlaces=2):
         return float("{0:.{1}f}".format(value, decimalPlaces))
 
     @staticmethod
