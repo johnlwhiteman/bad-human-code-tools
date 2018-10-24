@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 import csv
 import numpy as np
+import os
 import pandas as pd
 import re
 import sys
 import time
+import xlsxwriter
 from sklearn import tree
 from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.gaussian_process import GaussianProcessClassifier
+from sklearn.gaussian_process.kernels import RBF
 from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
@@ -47,51 +52,103 @@ class Cvss:
             return 4
         return None
 
-class ModelGeneration(object):
 
-    def __init__(self, outputDir, cfgPath="ml.json", kFolds=2):
-        self.outputDir = outputDir
-        self.cfgPath = cfgPath
+class Ml(object):
+
+    def __init__(self):
+        self.classifiers = {
+            "Decision Tree": tree.DecisionTreeClassifier(),
+            "Gradient Boosting": GradientBoostingClassifier(n_estimators=1000),
+            "Gaussian Process": GaussianProcessClassifier(1.0 * RBF(1.0)),
+            "Linear SVM": SVC(kernel="linear", C=0.025),
+            "Naive Bayes": GaussianNB(),
+            "Nearest Neighbors": KNeighborsClassifier(3),
+            "Neural Net": MLPClassifier(alpha = 1, max_iter=10000),
+            "Random Forest": RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1)
+        }
+
+
+class ReportBuilder(Ml):
+
+    def __init__(self, inputDataPath, outputDataPath):
+        super().__init__()
+        self.inputDataPath = inputDataPath
+        self.outputDataPath = outputDataPath
+        self.df = None
+
+    def run(self):
+        self.df = pd.read_csv(self.inputDataPath)
+        wb= xlsxwriter.Workbook(self.outputDataPath)
+        fmtBold = wb.add_format({'bold': True})
+        wsSummary = wb.add_worksheet("Summary")
+        wsData = wb.add_worksheet("Data")
+        wsSummary.set_column("A:I", 18)
+        wsData.set_column("A:I", 18)
+        columns = sorted(self.df.columns)
+        columns.insert(0, "K")
+        i = 0
+        for j in range(0, len(columns)):
+            wsData.write(i, j, columns[j], fmtBold)
+        i = 1
+        beginRow = i
+        for index, row in self.df.iterrows():
+            wsData.write(i, 0, i)
+            for j in range(1, len(columns)):
+                wsData.write(i, j, row[columns[j]])
+                j += 1
+            i += 1
+        endRow = i
+        columns.pop(0)
+        stats = ["Classifier", "Mean", "Median", "Std", "Var", "Min", "Max"]
+        for j in range(0, len(stats)):
+            wsSummary.write(0, j, stats[j], fmtBold)
+        for i in range(0, len(columns)):
+            classifier = columns[i]
+            sMean = Number.asFloat(np.mean(self.df[classifier]), 3)
+            sMedian = Number.asFloat(np.median(self.df[classifier]), 3)
+            sStd = Number.asFloat(np.std(self.df[classifier]), 3)
+            sVar = Number.asFloat(np.var(self.df[classifier]), 3)
+            sMin = np.min(self.df[classifier])
+            sMax = np.max(self.df[classifier])
+            stats = [classifier, sMean, sMedian, sStd, sVar, sMin, sMax]
+            for j in range(0, len(stats)):
+                if j == 0:
+                    wsSummary.write(i+1, j, stats[j], fmtBold)
+                else:
+                    wsSummary.write(i+1, j, stats[j])
+        wb.close()
+        Msg.raw(self.df)
+
+
+class ModelGeneration(Ml):
+
+    def __init__(self, inputDataPath, outputDataPath, kFolds=2,
+                 randomizeDataFlag=False, cycles=1):
+        super().__init__()
+        self.inputDataPath = inputDataPath
+        self.outputDataPath = outputDataPath
         self.kFolds = int(kFolds)
+        self.randomizeDataFlag = randomizeDataFlag
+        self.cycles = cycles
         self.dfData = None
         self.dfFeatures = None
         self.dfLabel = None
         self.featureNames = None
         self.labelName = None
-        self.classifiers = {
-            "Decision Tree": tree.DecisionTreeClassifier(),
-            "Gradient Boosting Classifier": GradientBoostingClassifier(n_estimators=1000),
-            #"Linear SVM": SVC(),
-            #"Logistic Regression": LogisticRegression(),
-            "Naive Bayes": GaussianNB(),
-            "Nearest Neighbors": KNeighborsClassifier(),
-            #"Neural Net": MLPClassifier(alpha = 1),
-            "Random Forest": RandomForestClassifier(n_estimators=1000)
-        }
 
     def build(self, inputDataPath):
-        Msg.raw("Input: {0}".format(inputDataPath))
+        Msg.raw("Analyzing <-> {0}".format(inputDataPath))
         self.ingestData(inputDataPath)
-        kf = KFold(n_splits=self.kFolds, shuffle=True, random_state=None)
-        X = self.dfFeatures.values.astype(dtype="int64")
+        kf = KFold(n_splits=self.kFolds, shuffle=self.randomizeDataFlag, random_state=None)
+        X = self.dfFeatures.values
         y = self.dfLabel.values.astype(dtype="int64")
-        for trainIndex, testIndex in kf.split(X):
-            xTrain, xTest = X[trainIndex], X[testIndex]
-            yTrain, yTest = y[trainIndex], y[testIndex]
-            print(xTrain)
-            for name, classifier in sorted(list(self.classifiers.items())):
-                startTime = time.clock()
-                classifier.fit(xTrain, yTrain)
-                endTime = time.clock()
-                deltaTime = endTime - startTime
-                prediction = classifier.predict(xTest)
-                trainScore = classifier.score(xTrain, yTrain)
-                testScore = classifier.score(xTest, yTest)
-                Msg.raw("Classifier: {0}".format(name))
-                Msg.raw("Train: {0}, Test: {1}\n".format(Number.asFloat(trainScore),
-                                                         Number.asFloat(testScore)))
-            print("")
-        return 0
+        scoreKeeper = {}
+        for name, classifier in sorted(list(self.classifiers.items())):
+            scores = cross_val_score(classifier, X, y, cv=kf)
+            if not name in scoreKeeper:
+                scoreKeeper[name] = []
+            scoreKeeper[name].extend(scores)
+        return scoreKeeper
 
     def ingestData(self, inputDataPath):
         self.dfData = pd.read_csv(inputDataPath)
@@ -100,21 +157,29 @@ class ModelGeneration(object):
         self.dfLabel = self.dfData[self.labelName]
         self.dfFeatures = self.dfData[self.featureNames]
 
-    def run(self, inputDataPath, isDirectoryFlag=False):
-        if isDirectoryFlag:
-            for path in Dir.getFiles(inputDataPath, recursiveFlag=True):
-                if File.getExtension(path) == "csv":
-                    self.build(path)
-        else:
-            pass
-        return 0
+    def initialize(self):
+        Msg.show("Initializing")
+        Dir.make(File.getDirectory(self.outputDataPath))
+
+    def run(self):
+        self.initialize()
+        scoreKeeper = Data.buildDictByKeys(self.classifiers.keys(), [])
+        for i in range(0, self.cycles):
+            Msg.show("Cycle {0} of {1}".format(i+1, self.cycles))
+            scores = self.build(self.inputDataPath)
+            for classifier in scores.keys():
+                scoreKeeper[classifier].extend(scores[classifier])
+        df = pd.DataFrame.from_dict(scoreKeeper)
+        df.to_csv(self.outputDataPath, index=False, float_format='%.2f')
+        Msg.show("Saved results -> {0}".format(self.outputDataPath))
 
 
 class DataPreparation(object):
 
     def __init__(self, logDir, outputDir, cfgPath="ml.json",
                  scaleDataFlag=False, scaleDataMethod="RobustScaler",
-                 excludeMissingDataFlag=False, replaceMissingDataMethod="mean"):
+                 excludeMissingDataFlag=False, replaceMissingDataMethod="mean",
+                 cvssVersion="2"):
         self.logDir = logDir
         self.outputDir = outputDir
         self.cfgPath = cfgPath
@@ -122,6 +187,7 @@ class DataPreparation(object):
         self.scaleDataMethod = scaleDataMethod
         self.excludeMissingDataFlag = excludeMissingDataFlag
         self.replaceMissingDataMethod = replaceMissingDataMethod
+        self.cvssVersion = cvssVersion
         self.logPaths = None
         self.features = None
         self.labels = None
@@ -218,6 +284,8 @@ class DataPreparation(object):
 
     def initialize(self):
         Msg.show("Initializing")
+        Msg.show("CVSS scoring version: {0}".format(self.cvssVersion))
+        Msg.show("Scale data: {0}".format(self.scaleDataFlag))
         cfg = File.read(path=self.cfgPath, asJsonFlag=True)
         self.features = cfg["features"]
         self.labels = cfg["labels"]
@@ -242,21 +310,6 @@ class DataPreparation(object):
             newCols.append("{0}-{1}".format(alias, cols[i]))
         return newCols
 
-    def scaleData(self):
-        scaler = preprocessing.RobustScaler()
-        for path in self.paths:
-            dfData = pd.read_csv(path)
-            labelName = dfData.columns.values[0].strip()
-            joinNames = dfData.columns.values[1:3]
-            featureNames = dfData.columns.values[3:]
-            allNames =  [labelName] + joinNames.tolist() + featureNames.tolist()
-            df = pd.DataFrame(columns=allNames)
-            df[labelName] = dfData[labelName].values
-            df[joinNames] = dfData[joinNames].values
-            df[featureNames] = scaler.fit_transform(dfData[featureNames])
-            Msg.show("Rescaling {0}".format(path))
-            df.to_csv(path, index=False, float_format='%.2f')
-
     def run(self):
         self.initialize()
         self.dfs = {}
@@ -273,7 +326,10 @@ class DataPreparation(object):
             self.dfs[label] = \
                 getattr(self, "_{0}".format(label))(self.logPaths["labels"][label])
             labelName = self.labelMap[label]
-            self.dfs[label][labelName] = self.dfs[label][labelName].apply(lambda x: Cvss.getSeverityV2(x))
+            if self.cvssVersion == 2:
+                self.dfs[label][labelName] = self.dfs[label][labelName].apply(lambda x: Cvss.getSeverityV2(x))
+            else:
+                self.dfs[label][labelName] = self.dfs[label][labelName].apply(lambda x: Cvss.getSeverityV3(x))
         for feature in self.features:
             self.saveDataFeature(feature, self.dfs[feature])
         self.saveData()
@@ -326,5 +382,20 @@ class DataPreparation(object):
             df = labelDf.merge(featureDf, how="inner", on=joinCols)
             Msg.show("Saving {0}/{1} -> {2}".format(labelName, featureName, path))
             self.paths.append(path)
+            df.to_csv(path, index=False, float_format='%.2f')
+
+    def scaleData(self):
+        scaler = preprocessing.RobustScaler()
+        for path in self.paths:
+            dfData = pd.read_csv(path)
+            labelName = dfData.columns.values[0].strip()
+            joinNames = dfData.columns.values[1:3]
+            featureNames = dfData.columns.values[3:]
+            allNames =  [labelName] + joinNames.tolist() + featureNames.tolist()
+            df = pd.DataFrame(columns=allNames)
+            df[labelName] = dfData[labelName].values
+            df[joinNames] = dfData[joinNames].values
+            df[featureNames] = scaler.fit_transform(dfData[featureNames])
+            Msg.show("Rescaling {0}".format(path))
             df.to_csv(path, index=False, float_format='%.2f')
 

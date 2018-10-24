@@ -220,6 +220,11 @@ class File:
         return File.getCanonicalPath(os.path.basename(os.path.splitext(path)[0]))
 
     @staticmethod
+    def move(srcPath, tgtPath):
+        if File.exists(srcPath):
+            shutil.move(srcPath, tgtPath)
+
+    @staticmethod
     def read(path, asCsvFlag=False, asJsonFlag=False):
         content = None
         try:
@@ -238,6 +243,10 @@ class File:
         return content
 
     @staticmethod
+    def rename(srcPath, tgtPath):
+        File.move(srcPath, tgtPath)
+
+    @staticmethod
     def write(path, content, asJsonFlag=False):
         try:
             Dir.make(File.getDirectory(path))
@@ -253,12 +262,12 @@ class File:
 class Number:
 
     @staticmethod
-    def formatIntWithCommas(value):
-        return str("{:,}".format(value))
-
-    @staticmethod
     def asFloat(value, decimalPlaces=2):
         return float("{0:.{1}f}".format(value, decimalPlaces))
+
+    @staticmethod
+    def asIntWithCommas(value):
+        return str("{:,}".format(value))
 
     @staticmethod
     def getRandomIndex(lst):
