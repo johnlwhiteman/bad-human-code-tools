@@ -11,6 +11,8 @@ if __name__ == "__main__":
         prog = scriptName,
         description = "This script generates the supervised machine learning models",
         formatter_class = argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("-c", "--cycles", metavar="'cycles'", required=False, type=int,
+                        default=1, help="Input given data CSV file")
     parser.add_argument("-i", "--inputdatapath", metavar="'inputdatapath'", required=True, type=str,
                         help="Input given data CSV file")
     parser.add_argument("-k", "--kfolds", metavar="'kfolds'", required=False, type=int,

@@ -12,7 +12,7 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.gaussian_process import GaussianProcessClassifier
 from sklearn.gaussian_process.kernels import RBF
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import SGDClassifier
 from sklearn.model_selection import cross_val_score
 from sklearn.model_selection import KFold
 from sklearn.naive_bayes import GaussianNB
@@ -20,6 +20,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn import preprocessing
 from sklearn.svm import SVC
+
 from JunkDrawer import Data, Dir, File, Msg, Number
 
 pd.options.display.float_format = '{:,.2f}'.format
@@ -57,14 +58,12 @@ class Ml(object):
 
     def __init__(self):
         self.classifiers = {
-            "Decision Tree": tree.DecisionTreeClassifier(),
-            "Gradient Boosting": GradientBoostingClassifier(n_estimators=1000),
-            "Gaussian Process": GaussianProcessClassifier(1.0 * RBF(1.0)),
             "Linear SVM": SVC(kernel="linear", C=0.025),
             "Naive Bayes": GaussianNB(),
-            "Nearest Neighbors": KNeighborsClassifier(3),
-            "Neural Net": MLPClassifier(alpha = 1, max_iter=10000),
-            "Random Forest": RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1)
+            #"Nearest Neighbors": KNeighborsClassifier(3),
+            "Neural Net": MLPClassifier(alpha=1e-5, solver='lbfgs', hidden_layer_sizes=(5,2), max_iter=1000, random_state=1),
+            "Random Forest": RandomForestClassifier(max_depth=5, n_estimators=10, max_features=1),
+            "Stochastic Gradient": SGDClassifier(loss="hinge", penalty="l2", max_iter=25)
         }
 
 
@@ -76,12 +75,24 @@ class ReportBuilder(Ml):
         self.outputDataPath = outputDataPath
         self.df = None
 
+    def createScatterChart(self, wb, categories, series, title):
+        chart = wb.add_chart({"type": "scatter"})
+        chart.add_series({
+            "categories": categories,
+            "values": series}
+        )
+        chart.set_title({"name": title})
+        chart.set_x_axis({"Name": "KFold"})
+        chart.set_y_axis({"Name": "Score"})
+        return chart
+
     def run(self):
         self.df = pd.read_csv(self.inputDataPath)
-        wb= xlsxwriter.Workbook(self.outputDataPath)
+        wb = xlsxwriter.Workbook(self.outputDataPath)
         fmtBold = wb.add_format({'bold': True})
         wsSummary = wb.add_worksheet("Summary")
         wsData = wb.add_worksheet("Data")
+        wsChart = wb.add_worksheet("Chart")
         wsSummary.set_column("A:I", 18)
         wsData.set_column("A:I", 18)
         columns = sorted(self.df.columns)
@@ -98,6 +109,26 @@ class ReportBuilder(Ml):
                 j += 1
             i += 1
         endRow = i
+        chart = wb.add_chart({"type": "scatter"})
+        categories = "=Data!$A$2:$A101"
+        series1 = "=Data!$B$2:$B101"
+        series2 = "=Data!$C$2:$C101"
+        series3 = "=Data!$D$2:$D101"
+        chart.add_series({
+            "categories": categories,
+            "values": series1}
+        )
+        chart.add_series({
+            "categories": categories,
+            "values": series2}
+        )
+        chart.add_series({
+            "categories": categories,
+            "values": series3}
+        )
+        chart.set_x_axis({"Name": "KFold"})
+        chart.set_y_axis({"Name": "Score"})
+        wsChart.insert_chart("A1", chart)
         columns.pop(0)
         stats = ["Classifier", "Mean", "Median", "Std", "Var", "Min", "Max"]
         for j in range(0, len(stats)):
@@ -170,6 +201,7 @@ class ModelGeneration(Ml):
             for classifier in scores.keys():
                 scoreKeeper[classifier].extend(scores[classifier])
         df = pd.DataFrame.from_dict(scoreKeeper)
+        Msg.raw(df)
         df.to_csv(self.outputDataPath, index=False, float_format='%.2f')
         Msg.show("Saved results -> {0}".format(self.outputDataPath))
 
